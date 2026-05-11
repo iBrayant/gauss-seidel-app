@@ -74,78 +74,105 @@ export default function GaussSeidelMethodApp() {
     setConverged(false);
 
     try {
+      // --- PASO 1: Captura y Validación de Parámetros Iniciales ---
+      // Convertimos los strings de la interfaz a números flotantes para el procesamiento matemático.
       const A = matrix.map(row => row.map(val => parseFloat(val)));
       const b = vector.map(val => parseFloat(val));
       const tolerance = parseFloat(tol);
       const maxI = parseInt(maxIter);
 
+      // Verificamos que no existan valores nulos o no numéricos (NaN) que rompan el cálculo.
       if (A.some(row => row.some(val => isNaN(val))) || b.some(val => isNaN(val))) {
         throw new Error("La matriz y el vector deben contener valores numéricos válidos.");
       }
+      // La tolerancia define la precisión deseada; debe ser positiva.
       if (isNaN(tolerance) || tolerance <= 0) {
          throw new Error("La tolerancia debe ser un número positivo.");
       }
+      // El límite de iteraciones es nuestra red de seguridad contra la divergencia.
       if (isNaN(maxI) || maxI <= 0) {
          throw new Error("El máximo de iteraciones debe ser un entero positivo.");
       }
 
+      // --- PASO 2: Verificación de Condición de Convergencia ---
+      // El método de Gauss-Seidel garantiza convergencia si la matriz es Estrictamente Diagonal Dominante (EDD).
       let isDominant = true;
       for (let i = 0; i < n; i++) {
         let sum = 0;
         for (let j = 0; j < n; j++) {
           if (i !== j) sum += Math.abs(A[i][j]);
         }
+        // Comparamos el valor absoluto del elemento diagonal con la suma de los demás en la fila.
         if (Math.abs(A[i][i]) <= sum) {
           isDominant = false;
+          // Si el elemento diagonal es 0, no podemos dividir por él (división por cero).
           if (A[i][i] === 0) {
              throw new Error(`El elemento en la diagonal principal A[${i+1}][${i+1}] es 0. El método de Gauss-Seidel no se puede aplicar.`);
           }
         }
       }
 
+      // Si no es EDD, el método podría no converger, pero se intenta de todos modos.
       if (!isDominant) {
         setWarningMsg("Advertencia: La matriz no es estrictamente diagonal dominante. El método puede no converger.");
       }
 
-      let x_old = Array(n).fill(0);
-      let x_new = Array(n).fill(0);
-      let k = 0;
+      // --- PASO 3: Inicialización del Proceso Iterativo ---
+      let x_old = Array(n).fill(0); // Vector de aproximación inicial (típicamente ceros)
+      let x_new = Array(n).fill(0); // Vector donde guardaremos los nuevos valores calculados
+      let k = 0; // Contador de iteraciones
       let iterData: IterationData[] = [];
+      
+      // Guardamos el estado inicial (Iteración 0)
       iterData.push({ k: 0, x: [...x_old], error: null });
 
-      let currentError = 100;
+      let currentError = 100; // Error inicial arbitrario para entrar al bucle
       let hasConverged = false;
 
+      // --- PASO 4: Bucle de Cálculo (Iteraciones) ---
       do {
         k++;
         let maxDiff = 0;
         let maxNew = 0;
 
+        // Recorremos cada fila para calcular el nuevo valor de x[i]
         for (let i = 0; i < n; i++) {
           let sum = 0;
           for (let j = 0; j < n; j++) {
-            if (i !== j) sum += A[i][j] * x_new[j]; // En Gauss-Seidel x_new se usa de inmediato
+            // Lógica Gauss-Seidel: Se usan los valores 'x_new' si ya están calculados (j < i)
+            // y los 'x_old' si aún no se han actualizado en esta iteración (j > i).
+            if (i !== j) sum += A[i][j] * x_new[j]; 
           }
+          
+          // Aplicación de la fórmula: x_i = (b_i - sumatoria) / a_ii
           let x_i_new_val = (b[i] - sum) / A[i][i];
           
+          // Cálculo del error absoluto local para esta componente
           let diff = Math.abs(x_i_new_val - x_old[i]);
           if (diff > maxDiff) maxDiff = diff;
+          
           let absNew = Math.abs(x_i_new_val);
           if (absNew > maxNew) maxNew = absNew;
 
-          x_new[i] = x_i_new_val; // Actualización inmediata
+          // ACTUALIZACIÓN INMEDIATA: Este valor ya está disponible para la siguiente componente x[i+1]
+          x_new[i] = x_i_new_val; 
         }
 
+        // --- PASO 5: Criterio de Parada y Control de Error ---
+        // Calculamos el error relativo aproximado usando la norma infinito (máximo cambio)
         currentError = maxNew === 0 ? 0 : maxDiff / maxNew;
 
-        x_old = [...x_new];
+        x_old = [...x_new]; // Preparamos x_old para la siguiente iteración
         iterData.push({ k: k, x: [...x_old], error: currentError });
 
+        // Si el error es menor a la tolerancia, hemos alcanzado la convergencia
         if (currentError < tolerance) {
           hasConverged = true;
           break;
         }
 
+      // --- PASO 6: Límite de Seguridad ---
+      // Evitamos un bucle infinito si el sistema diverge o tarda demasiado.
       } while (k < maxI);
 
       setResults(iterData);
@@ -154,7 +181,7 @@ export default function GaussSeidelMethodApp() {
         setConverged(true);
         setSolution([...x_old]);
       } else {
-        setErrorMsg("No converge: Se alcanzó el número máximo de iteraciones.");
+        setErrorMsg("No converge: Se alcanzó el número máximo de iteraciones permitido.");
       }
 
     } catch (err: any) {
@@ -282,14 +309,14 @@ export default function GaussSeidelMethodApp() {
             </form>
           </div>
           
-          {/* Formula Card */}
+          {/* Panel de Fórmulas: Explicación académica de lo que ocurre en el código */}
           <div className="bg-yellow-50/50 p-6 rounded-2xl border border-yellow-200">
             <h3 className="text-sm font-semibold text-yellow-900 mb-3 uppercase tracking-wider">Fórmula de Iteración</h3>
             <div className="text-center overflow-x-auto py-2">
               <BlockMath math="x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j < i} a_{ij} x_j^{(k+1)} - \sum_{j > i} a_{ij} x_j^{(k)} \right)" />
             </div>
             <p className="text-xs text-yellow-700 mt-2 text-center">
-              A diferencia de Jacobi, los valores de <InlineMath math="x" /> se actualizan inmediatamente.
+              <strong>Nota Académica:</strong> A diferencia de Jacobi, aquí se utilizan los valores de <InlineMath math="x" /> en cuanto se calculan (<InlineMath math="k+1" />), lo que suele acelerar la convergencia.
             </p>
           </div>
         </div>
@@ -333,23 +360,22 @@ export default function GaussSeidelMethodApp() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
+                   {/* Visualización de Resultados: Tabla paso a paso para la sustentación */}
           {results.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
               <div className="p-5 border-b border-stone-100 bg-stone-50/50">
                 <h3 className="font-semibold text-stone-800">Tabla de Iteraciones</h3>
+                <p className="text-xs text-stone-500">Muestra la evolución de cada variable y el error máximo en cada paso.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-stone-500 uppercase bg-stone-50">
                     <tr>
-                      <th className="px-6 py-3 font-medium">k</th>
+                      <th className="px-6 py-3 font-medium">k (Iteración)</th>
                       {Array.from({length: n}).map((_, i) => (
-                        <th key={`th-${i}`} className="px-6 py-3 font-medium"><InlineMath math={`x_${i+1}`} /></th>
+                        <th key={`th-${i}`} className="px-6 py-3 font-medium"><InlineMath math={`x_{${i+1}}`} /></th>
                       ))}
-                      <th className="px-6 py-3 font-medium">Error máx.</th>
+                      <th className="px-6 py-3 font-medium">Error Relativo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -369,10 +395,16 @@ export default function GaussSeidelMethodApp() {
               </div>
             </div>
           )}
+     </div>
+          )}
 
+          {/* Gráfico de Convergencia: Interpretación visual del error */}
           {chartData.length > 1 && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
-              <h3 className="font-semibold text-stone-800 mb-6">Convergencia del Error</h3>
+              <h3 className="font-semibold text-stone-800 mb-2">Convergencia del Error</h3>
+              <p className="text-xs text-stone-500 mb-6">
+                Representa cómo el error disminuye logarítmicamente. Si la línea baja, el método está convergiendo hacia la solución.
+              </p>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
