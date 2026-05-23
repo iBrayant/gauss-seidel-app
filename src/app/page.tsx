@@ -360,22 +360,25 @@ export default function GaussSeidelMethodApp() {
                   </div>
                 ))}
               </div>
-                   {/* Visualización de Resultados: Tabla paso a paso para la sustentación */}
+            </div>
+          )}
+
+          {/* Visualización de Resultados: Tabla paso a paso para la sustentación */}
           {results.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden w-full">
               <div className="p-5 border-b border-stone-100 bg-stone-50/50">
                 <h3 className="font-semibold text-stone-800">Tabla de Iteraciones</h3>
                 <p className="text-xs text-stone-500">Muestra la evolución de cada variable y el error máximo en cada paso.</p>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto w-full">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-stone-500 uppercase bg-stone-50">
                     <tr>
-                      <th className="px-6 py-3 font-medium">k (Iteración)</th>
+                      <th className="px-6 py-3 font-medium whitespace-nowrap">k (Iteración)</th>
                       {Array.from({length: n}).map((_, i) => (
-                        <th key={`th-${i}`} className="px-6 py-3 font-medium"><InlineMath math={`x_{${i+1}}`} /></th>
+                        <th key={`th-${i}`} className="px-6 py-3 font-medium whitespace-nowrap"><InlineMath math={`x_{${i+1}}`} /></th>
                       ))}
-                      <th className="px-6 py-3 font-medium">Error Relativo</th>
+                      <th className="px-6 py-3 font-medium whitespace-nowrap">Error Relativo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -394,8 +397,6 @@ export default function GaussSeidelMethodApp() {
                 </table>
               </div>
             </div>
-          )}
-     </div>
           )}
 
           {/* Gráfico de Convergencia: Interpretación visual del error */}
