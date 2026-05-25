@@ -12,12 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { AlertCircle, RefreshCw, Grid3X3, AlertTriangle } from "lucide-react";
-
-interface IterationData {
-  k: number;
-  x: number[];
-  error: number | null;
-}
+import { calculateGaussSeidel, IterationData } from "../math/gaussSeidel";
 
 export default function GaussSeidelMethodApp() {
   const [n, setN] = useState(3);
@@ -74,114 +69,20 @@ export default function GaussSeidelMethodApp() {
     setConverged(false);
 
     try {
-      // --- PASO 1: Captura y Validación de Parámetros Iniciales ---
-      // Convertimos los strings de la interfaz a números flotantes para el procesamiento matemático.
-      const A = matrix.map(row => row.map(val => parseFloat(val)));
-      const b = vector.map(val => parseFloat(val));
-      const tolerance = parseFloat(tol);
-      const maxI = parseInt(maxIter);
+      // Llamada al módulo matemático aislado
+      const result = calculateGaussSeidel(matrix, vector, tol, maxIter);
 
-      // Verificamos que no existan valores nulos o no numéricos (NaN) que rompan el cálculo.
-      if (A.some(row => row.some(val => isNaN(val))) || b.some(val => isNaN(val))) {
-        throw new Error("La matriz y el vector deben contener valores numéricos válidos.");
+      if (result.errorMsg) {
+        setErrorMsg(result.errorMsg);
       }
-      // La tolerancia define la precisión deseada; debe ser positiva.
-      if (isNaN(tolerance) || tolerance <= 0) {
-         throw new Error("La tolerancia debe ser un número positivo.");
-      }
-      // El límite de iteraciones es nuestra red de seguridad contra la divergencia.
-      if (isNaN(maxI) || maxI <= 0) {
-         throw new Error("El máximo de iteraciones debe ser un entero positivo.");
+      if (result.warningMsg) {
+        setWarningMsg(result.warningMsg);
       }
 
-      // --- PASO 2: Verificación de Condición de Convergencia ---
-      // El método de Gauss-Seidel garantiza convergencia si la matriz es Estrictamente Diagonal Dominante (EDD).
-      let isDominant = true;
-      for (let i = 0; i < n; i++) {
-        let sum = 0;
-        for (let j = 0; j < n; j++) {
-          if (i !== j) sum += Math.abs(A[i][j]);
-        }
-        // Comparamos el valor absoluto del elemento diagonal con la suma de los demás en la fila.
-        if (Math.abs(A[i][i]) <= sum) {
-          isDominant = false;
-          // Si el elemento diagonal es 0, no podemos dividir por él (división por cero).
-          if (A[i][i] === 0) {
-             throw new Error(`El elemento en la diagonal principal A[${i+1}][${i+1}] es 0. El método de Gauss-Seidel no se puede aplicar.`);
-          }
-        }
-      }
-
-      // Si no es EDD, el método podría no converger, pero se intenta de todos modos.
-      if (!isDominant) {
-        setWarningMsg("Advertencia: La matriz no es estrictamente diagonal dominante. El método puede no converger.");
-      }
-
-      // --- PASO 3: Inicialización del Proceso Iterativo ---
-      let x_old = Array(n).fill(0); // Vector de aproximación inicial (típicamente ceros)
-      let x_new = Array(n).fill(0); // Vector donde guardaremos los nuevos valores calculados
-      let k = 0; // Contador de iteraciones
-      let iterData: IterationData[] = [];
-      
-      // Guardamos el estado inicial (Iteración 0)
-      iterData.push({ k: 0, x: [...x_old], error: null });
-
-      let currentError = 100; // Error inicial arbitrario para entrar al bucle
-      let hasConverged = false;
-
-      // --- PASO 4: Bucle de Cálculo (Iteraciones) ---
-      do {
-        k++;
-        let maxDiff = 0;
-        let maxNew = 0;
-
-        // Recorremos cada fila para calcular el nuevo valor de x[i]
-        for (let i = 0; i < n; i++) {
-          let sum = 0;
-          for (let j = 0; j < n; j++) {
-            // Lógica Gauss-Seidel: Se usan los valores 'x_new' si ya están calculados (j < i)
-            // y los 'x_old' si aún no se han actualizado en esta iteración (j > i).
-            if (i !== j) sum += A[i][j] * x_new[j]; 
-          }
-          
-          // Aplicación de la fórmula: x_i = (b_i - sumatoria) / a_ii
-          let x_i_new_val = (b[i] - sum) / A[i][i];
-          
-          // Cálculo del error absoluto local para esta componente
-          let diff = Math.abs(x_i_new_val - x_old[i]);
-          if (diff > maxDiff) maxDiff = diff;
-          
-          let absNew = Math.abs(x_i_new_val);
-          if (absNew > maxNew) maxNew = absNew;
-
-          // ACTUALIZACIÓN INMEDIATA: Este valor ya está disponible para la siguiente componente x[i+1]
-          x_new[i] = x_i_new_val; 
-        }
-
-        // --- PASO 5: Criterio de Parada y Control de Error ---
-        // Calculamos el error relativo aproximado usando la norma infinito (máximo cambio)
-        currentError = maxNew === 0 ? 0 : maxDiff / maxNew;
-
-        x_old = [...x_new]; // Preparamos x_old para la siguiente iteración
-        iterData.push({ k: k, x: [...x_old], error: currentError });
-
-        // Si el error es menor a la tolerancia, hemos alcanzado la convergencia
-        if (currentError < tolerance) {
-          hasConverged = true;
-          break;
-        }
-
-      // --- PASO 6: Límite de Seguridad ---
-      // Evitamos un bucle infinito si el sistema diverge o tarda demasiado.
-      } while (k < maxI);
-
-      setResults(iterData);
-      
-      if (hasConverged) {
+      setResults(result.results);
+      if (result.hasConverged) {
         setConverged(true);
-        setSolution([...x_old]);
-      } else {
-        setErrorMsg("No converge: Se alcanzó el número máximo de iteraciones permitido.");
+        setSolution(result.solution);
       }
 
     } catch (err: any) {
